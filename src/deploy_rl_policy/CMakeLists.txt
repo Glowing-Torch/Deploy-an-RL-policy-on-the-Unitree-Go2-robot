@@ -38,6 +38,7 @@ add_executable(low_level_ctrl src/low_level_ctrl.cpp src/common/motor_crc.cpp)
 install(PROGRAMS 
   scripts/rl_policy.py
   scripts/xbox_command.py
+  scripts/wireless_controller_command.py
   scripts/config.py
   scripts/mujoco_simulator.py
   scripts/record_torque.py

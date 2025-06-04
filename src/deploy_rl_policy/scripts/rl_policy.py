@@ -9,7 +9,7 @@ from rclpy.node import Node
 import argparse
 from pathlib import Path
 from unitree_go.msg import LowState
-from xbox_command import XboxController
+from wireless_controller_command import Controller
 from std_msgs.msg import Float32MultiArray
 project_root=Path(__file__).parents[4]
 
@@ -17,11 +17,14 @@ class dataReciever(Node):
     def __init__(self,config:Config):
         super().__init__("data_reciever")
         self.config = config
-        self.cmd_sub=XboxController(self)
+        self.cmd_sub=Controller(self)
         # Initialize the policy network()
         script_dir = os.path.dirname(os.path.abspath(__file__))  
         policy_path = os.path.join(script_dir, self.config.policy_path)
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # print(self.device)
         self.policy = torch.jit.load(policy_path)
+        self.policy.to(self.device)
         self.policy.eval()
         # Initializing process variables
         self.qj = np.zeros(config.num_actions, dtype=np.float32)
@@ -53,7 +56,7 @@ class dataReciever(Node):
     def run(self):
         # self.get_logger().info("running")
         # Get the current joint position and velocity
-        if (self.cmd_sub.axes and self.cmd_sub.axes[2] == -1 and self.cmd_sub.axes[5] == -1):
+        if (self.cmd_sub.keys==48):
             sys.exit()
             
         for i in range(12):
@@ -76,25 +79,15 @@ class dataReciever(Node):
 
         ang_vel = ang_vel * self.config.ang_vel_scale
         self.cmd=np.zeros(3)
-        self.left_button,self.right_button=self.cmd_sub.is_pressed()
-        if self.left_button and self.right_button:
-            if self.cmd_sub.axes[7]==0:
-                self.cmd_sub.linear_x+=-np.sign(self.cmd_sub.linear_x)*0.02
-            else:
-                self.cmd_sub.linear_x+=np.sign(self.cmd_sub.axes[7])*0.01
-            if self.cmd_sub.axes[6]==0:
-                self.cmd_sub.linear_y+=-np.sign(self.cmd_sub.linear_y)*0.02
-            else:
-                self.cmd_sub.linear_y+=np.sign(self.cmd_sub.axes[6])*0.01
-            self.cmd_sub.linear_x=np.clip(self.cmd_sub.linear_x,-self.cmd_sub.max_speed,self.cmd_sub.max_speed)
-            self.cmd_sub.linear_y=np.clip(self.cmd_sub.linear_y,-self.cmd_sub.max_speed,self.cmd_sub.max_speed)
-            self.cmd_sub.angular_z=self.cmd_sub.get_right_stick()
+        if self.cmd_sub.keys==3:
+            self.cmd_sub.linear_x,self.cmd_sub.linear_y=self.cmd_sub.get_left_stick() *self.cmd_sub.vel_scale
+            self.cmd_sub.angular_z=self.cmd_sub.get_right_stick()*self.cmd_sub.vel_scale
+
         else:
             self.cmd_sub.linear_x+=-np.sign(self.cmd_sub.linear_x)*0.02
             self.cmd_sub.linear_y+=-np.sign(self.cmd_sub.linear_y)*0.02
             self.cmd_sub.angular_z+=-np.sign(self.cmd_sub.angular_z)*0.02
 
-            
         self.cmd=np.array([self.cmd_sub.linear_x,self.cmd_sub.linear_y,self.cmd_sub.angular_z])
         print(self.cmd)
         self.cur_obs[:3] = self.cmd * self.config.cmd_scale 
@@ -106,8 +99,11 @@ class dataReciever(Node):
         self.obs=np.concatenate((self.obs[45:],self.cur_obs[:45]))
         self.obs=np.clip(self.obs,-100,100)
         # Get the action from the policy network
-        obs_tensor = torch.from_numpy(self.obs).unsqueeze(0)
-        self.action = self.policy(obs_tensor).detach().numpy().squeeze()
+        obs_tensor = torch.from_numpy(self.obs).unsqueeze(0).to(self.device)
+        with torch.no_grad():
+            action_tensor = self.policy(obs_tensor)
+        self.action = action_tensor.cpu().numpy().squeeze()
+
         # self.action=np.clip(self.action,-100,100)
         
         # transform action to target_dof_pos

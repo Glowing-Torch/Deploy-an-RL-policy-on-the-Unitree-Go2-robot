@@ -59,7 +59,7 @@ LowLevelControl::LowLevelControl() : Node("low_level_control_node")
     init_cmd();
     target_pos_suber_ = this->create_subscription<std_msgs::msg::Float32MultiArray>(
         "/rl/target_pos", 10, std::bind(&LowLevelControl::target_pos_callback, this, std::placeholders::_1)); // 50 HZ
-    joy_suber_ = this->create_subscription<sensor_msgs::msg::Joy>("/joy", 10, bind(&LowLevelControl::joy_callback, this, placeholders::_1));
+    joy_suber_ = this->create_subscription<unitree_go::msg::WirelessController>("/wirelesscontroller", 10, bind(&LowLevelControl::joy_callback, this, placeholders::_1));
     timer_ = this->create_wall_timer(std::chrono::milliseconds(5), std::bind(&LowLevelControl::state_machine, this)); // 500hz
 }
 
@@ -93,29 +93,29 @@ void LowLevelControl::target_pos_callback(std_msgs::msg::Float32MultiArray::Shar
     recieved_data_ = true;
     rl_target_pos_.data = msg->data;
 }
-void LowLevelControl::joy_callback(sensor_msgs::msg::Joy::SharedPtr msg)
+void LowLevelControl::joy_callback(unitree_go::msg::WirelessController::SharedPtr msg)
 {
 
-    if (is_laydown_ and msg->buttons[1]) // Button B
+    if (is_laydown_ and msg->keys==512) // Button B
     {
         should_stand_ = true;
         should_laydown_ = false;
         should_run_policy_ = false;
     }
-    else if (is_standing_ and msg->buttons[0]) // Button A
+    else if (is_standing_ and msg->keys==256) // Button A
     {
         should_laydown_ = true;
         should_stand_ = false;
         should_run_policy_ = false;
     }
-    else if (is_standing_ and msg->buttons[4] and msg->buttons[5]) // BUtton LB and Button RB
+    else if (is_standing_ and msg->keys==3) // BUtton LB and Button RB
     {
         should_laydown_ = false;
         should_stand_ = false;
         should_run_policy_ = true;
     }
 
-    if (msg->axes[2]==-1 && msg->axes[5]==-1)
+    if (msg->keys==48)
         rclcpp::shutdown();
 }
 

@@ -6,7 +6,7 @@
 #include "unitree_go/msg/low_state.hpp"
 #include "unitree_go/msg/motor_cmd.hpp"
 #include "unitree_go/msg/bms_cmd.hpp"
-#include "sensor_msgs/msg/joy.hpp"
+#include "unitree_go/msg/wireless_controller.hpp"
 #include "common/motor_crc.h"
 #include "std_msgs/msg/float32_multi_array.hpp"
 #include "common/cxxopts.hpp"
@@ -22,7 +22,7 @@ public:
 private:
     void init_cmd();
     void state_callback(unitree_go::msg::LowState::SharedPtr msg);
-    void joy_callback(sensor_msgs::msg::Joy::SharedPtr msg);
+    void joy_callback(unitree_go::msg::WirelessController::SharedPtr msg);
     void target_pos_callback(std_msgs::msg::Float32MultiArray::SharedPtr msg);
     void state_machine();
     void state_transform(vector<double> &target_angels);
@@ -33,7 +33,7 @@ private:
     rclcpp::Publisher<unitree_go::msg::LowCmd>::SharedPtr cmd_puber_;
     rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr target_pos_puber_;
     rclcpp::Subscription<unitree_go::msg::LowState>::SharedPtr state_suber_;
-    rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_suber_;
+    rclcpp::Subscription<unitree_go::msg::WirelessController>::SharedPtr joy_suber_;
     rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr target_pos_suber_;
 
     unitree_go::msg::LowCmd cmd_msg_;
